@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Prot.on - Rastreador de Proteínas</title>
+    
+    <!-- PWA Meta tags para iPhone / iOS e Android -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Prot.on">
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/4F80FF/ffffff?text=Pt">
+    <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Prot.on%20Fitness%22%2C%22short_name%22%3A%22Prot.on%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23101B38%22%2C%22theme_color%22%3A%22%234F80FF%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fplacehold.co%2F192x192%2F4F80FF%2Fffffff%3Ftext%3DPt%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        mainBg: '#101B38',
+                        headerBg: '#101B38',
+                        mainCard: '#1C2C4B',
+                        secCard: '#192742',
+                        inputBg: '#15233F',
+                        chipBg: '#192742',
+                        iconBg: '#4F80FF',
+                        btnPrimary: '#4F80FF',
+                        btnPrimaryHover: '#3768E8',
+                        activeIcon: '#4F80FF',
+                        inactiveIcon: '#A7B4CC',
+                        textMain: '#F5F8FF',
+                        textSec: '#C3D3F2',
+                        textAux: '#819BC5',
+                        numHighlight: '#4F80FF',
+                        goalIndicator: '#4F80FF',
+                        progressBg: '#304568',
+                        cardBorder: '#304568',
+                        divider: '#304568',
+                        navActiveBg: '#263759',
+                        badgeBg: '#1B3155',
+                        badgeBorder: '#4F80FF',
+                        successState: '#43D9A3',
+                        errorMsg: '#FF6B78',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Font Inter & Phosphor Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #101B38;
+            color: #F5F8FF;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-[#4F80FF] selection:text-white">
+
+    <!-- CABEÇALHO -->
+    <header class="sticky top-0 z-50 bg-[#101B38]/95 backdrop-blur-md border-b border-[#304568]">
+        <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 rounded-xl bg-[#4F80FF] flex items-center justify-center shadow-lg shadow-[#4F80FF]/30">
+                    <i class="ph-bold ph-barbell text-white text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg tracking-tight text-[#F5F8FF] leading-none">Prot.on</h1>
+                    <span class="text-[11px] text-[#C3D3F2] font-medium">Nutrição & Hipertrofia</span>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-1.5 bg-[#192742] p-1 rounded-2xl border border-[#304568]">
+                <button onclick="switchTab('home')" id="navHomeBtn" class="p-2.5 rounded-xl bg-[#263759] text-[#4F80FF] transition flex items-center justify-center">
+                    <i class="ph-bold ph-house text-lg"></i>
+                </button>
+                <button onclick="switchTab('history')" id="navHistoryBtn" class="p-2.5 rounded-xl text-[#A7B4CC] transition flex items-center justify-center">
+                    <i class="ph-bold ph-chart-line text-lg"></i>
+                </button>
+                <button onclick="switchTab('profile')" id="navProfileBtn" class="p-2.5 rounded-xl text-[#A7B4CC] transition flex items-center justify-center">
+                    <i class="ph-bold ph-user-gear text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="flex-1 max-w-md w-full mx-auto px-4 py-6 pb-24">
+
+        <!-- ABA 1: HOME / DIÁRIO -->
+        <div id="tab-home" class="space-y-6">
+            
+            <!-- Alerta Perfil Incompleto -->
+            <div id="profileWarning" class="hidden bg-[#FF6B78]/10 border border-[#FF6B78]/30 rounded-2xl p-4 text-[#FF6B78] text-sm flex items-start space-x-3">
+                <i class="ph-bold ph-warning-circle text-xl shrink-0 mt-0.5"></i>
+                <div>
+                    <span class="font-semibold block">Perfil não configurado!</span>
+                    Configure seus dados para determinarmos sua meta diária de proteína. <button onclick="switchTab('profile')" class="underline font-semibold mt-1 inline-block text-[#F5F8FF]">Configurar agora</button>
+                </div>
+            </div>
+
+            <!-- CARD DE PROGRESSO DE HOJE -->
+            <div class="bg-[#1C2C4B] border border-[#304568] rounded-3xl p-6 relative overflow-hidden shadow-xl">
+                <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-[#4F80FF]/10 rounded-full blur-3xl pointer-events-none"></div>
+                
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <span class="text-xs uppercase tracking-wider text-[#819BC5] font-semibold">Progresso Diário</span>
+                        <h2 id="todayDateLabel" class="text-base font-bold text-[#F5F8FF]">Hoje</h2>
+                    </div>
+                    <div class="bg-[#1B3155] border border-[#4F80FF] px-3 py-1.5 rounded-full text-xs font-semibold text-[#4F80FF] flex items-center space-x-1 shadow-sm">
+                        <i class="ph-bold ph-target"></i>
+                        <span id="goalBadgeText">Meta: 0g</span>
+                    </div>
+                </div>
+
+                <!-- Círculo / Barra de Progresso Central -->
+                <div class="flex flex-col items-center justify-center my-6">
+                    <div class="relative flex items-center justify-center">
+                        <svg class="w-44 h-44 transform -rotate-90">
+                            <circle cx="88" cy="88" r="76" stroke="currentColor" stroke-width="12" class="text-[#304568] fill-transparent"></circle>
+                            <circle id="progressCircle" cx="88" cy="88" r="76" stroke="currentColor" stroke-width="12" stroke-dasharray="477" stroke-dashoffset="477" stroke-linecap="round" class="text-[#4F80FF] fill-transparent transition-all duration-700 ease-out"></circle>
+                        </svg>
+                        <div class="absolute flex flex-col items-center text-center">
+                            <span id="consumedLabel" class="text-3xl font-extrabold text-[#F5F8FF] tracking-tight">0g</span>
+                            <span class="text-xs text-[#C3D3F2] font-medium">de <span id="targetSubLabel" class="text-[#4F80FF] font-bold">0g</span></span>
+                        </div>
+                    </div>
+                    <p id="progressStatusText" class="text-xs text-[#C3D3F2] mt-3 font-medium text-center">Faltam <span id="remainingLabel" class="text-[#4F80FF] font-bold">0g</span> para atingir sua meta</p>
+                </div>
+
+                <!-- Estatísticas rápidas -->
+                <div class="grid grid-cols-2 gap-3 pt-4 border-t border-[#304568]">
+                    <div class="bg-[#192742] p-3 rounded-2xl border border-[#304568]/50">
+                        <span class="text-[11px] text-[#819BC5] block font-medium">Refeições Hoje</span>
+                        <span id="mealCountLabel" class="text-lg font-bold text-[#F5F8FF]">0</span>
+                    </div>
+                    <div class="bg-[#192742] p-3 rounded-2xl border border-[#304568]/50">
+                        <span class="text-[11px] text-[#819BC5] block font-medium">Objetivo</span>
+                        <span id="goalNameShortLabel" class="text-xs font-bold text-[#4F80FF] truncate block mt-1">Hipertrofia</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADICIONAR ALIMENTO / LINGUAGEM NATURAL -->
+            <div class="bg-[#1C2C4B] border border-[#304568] rounded-3xl p-6 shadow-xl">
+                <h3 class="font-bold text-[#F5F8FF] text-base mb-1.5 flex items-center space-x-2">
+                    <i class="ph-bold ph-plus-circle text-[#4F80FF] text-xl"></i>
+                    <span>Registrar Consumo</span>
+                </h3>
+                <p class="text-xs text-[#C3D3F2] mb-4">Escreva naturalmente o que comeu. Ex: <span class="text-[#819BC5] italic">"150gr bife de gado magro", "2 scoop whey", "200gr frango"</span></p>
+
+                <div class="space-y-3">
+                    <div class="relative">
+                        <textarea id="naturalInput" rows="2" class="w-full bg-[#15233F] border border-[#304568] rounded-2xl p-4 text-sm text-[#F5F8FF] placeholder-[#819BC5] focus:outline-none focus:border-[#4F80FF] transition resize-none" placeholder="Ex: 150gr bife de gado magro..."></textarea>
+                    </div>
+
+                    <!-- Sugestões Rápidas (Chips) -->
+                    <div class="flex gap-2 overflow-x-auto no-scrollbar py-1">
+                        <button onclick="quickAdd('150gr peito de frango')" class="text-xs bg-[#192742] border border-[#304568] hover:border-[#4F80FF] px-3 py-1.5 rounded-xl text-[#C3D3F2] whitespace-nowrap transition">+ Frango (150g)</button>
+                        <button onclick="quickAdd('1 scoop whey')" class="text-xs bg-[#192742] border border-[#304568] hover:border-[#4F80FF] px-3 py-1.5 rounded-xl text-[#C3D3F2] whitespace-nowrap transition">+ Whey (1 scoop)</button>
+                        <button onclick="quickAdd('2 ovos inteiros')" class="text-xs bg-[#192742] border border-[#304568] hover:border-[#4F80FF] px-3 py-1.5 rounded-xl text-[#C3D3F2] whitespace-nowrap transition">+ 2 Ovos</button>
+                        <button onclick="quickAdd('200gr feijão preto cozido')" class="text-xs bg-[#192742] border border-[#304568] hover:border-[#4F80FF] px-3 py-1.5 rounded-xl text-[#C3D3F2] whitespace-nowrap transition">+ Feijão (200g)</button>
+                    </div>
+
+                    <!-- BOTÕES SOLICITADOS: CALCULAR PROTEÍNA E ADICIONAR -->
+                    <div class="grid grid-cols-2 gap-3 pt-2">
+                        <button onclick="calculateOnly()" class="bg-[#192742] hover:bg-[#263759] border border-[#304568] text-[#F5F8FF] font-semibold py-3 px-4 rounded-2xl transition flex items-center justify-center space-x-2 text-sm shadow-sm active:scale-[0.98]">
+                            <i class="ph-bold ph-calculator text-[#4F80FF] text-base"></i>
+                            <span>Calcular Proteína</span>
+                        </button>
+                        <button onclick="processFoodInput()" class="bg-[#4F80FF] hover:bg-[#3768E8] active:scale-[0.98] text-white font-bold py-3 px-4 rounded-2xl shadow-lg shadow-[#4F80FF]/25 transition flex items-center justify-center space-x-2 text-sm">
+                            <i class="ph-bold ph-check text-base"></i>
+                            <span>Adicionar</span>
+                        </button>
+                    </div>
+
+                    <!-- Caixa de Resultado do Cálculo Prévio -->
+                    <div id="calcPreviewBox" class="hidden bg-[#15233F] border border-[#4F80FF]/40 rounded-2xl p-3 text-center text-xs text-[#C3D3F2]">
+                        Estimativa calculada: <span id="calcPreviewValue" class="font-bold text-[#4F80FF] text-sm">0g</span> de proteína
+                    </div>
+                </div>
+            </div>
+
+            <!-- LISTA DE ALIMENTOS CONSUMIDOS HOJE -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-center px-1">
+                    <h3 class="font-bold text-[#F5F8FF] text-sm uppercase tracking-wider">Registros de Hoje</h3>
+                    <span id="todayItemsCount" class="text-xs text-[#819BC5]">0 itens</span>
+                </div>
+
+                <div id="todayItemsList" class="space-y-2">
+                    <div class="bg-[#1C2C4B]/50 border border-[#304568] rounded-2xl p-4 text-center text-[#819BC5] text-sm">
+                        Nenhum alimento registrado hoje ainda.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ABA 2: HISTÓRICO -->
+        <div id="tab-history" class="space-y-6 hidden">
+            <div class="bg-[#1C2C4B] border border-[#304568] rounded-3xl p-6 shadow-xl">
+                <h3 class="font-bold text-[#F5F8FF] text-base mb-1 flex items-center space-x-2">
+                    <i class="ph-bold ph-chart-line-up text-[#4F80FF] text-xl"></i>
+                    <span>Evolução da Ingestão</span>
+                </h3>
+                <p class="text-xs text-[#C3D3F2] mb-6">Acompanhe seu consumo diário comparado com a meta ao longo dos dias.</p>
+                
+                <div class="h-64 w-full relative">
+                    <canvas id="historyChart"></canvas>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <h3 class="font-bold text-[#F5F8FF] text-sm uppercase tracking-wider px-1">Histórico de Dias Anteriores</h3>
+                <div id="historyDaysList" class="space-y-2">
+                    <!-- Preenchido via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ABA 3: PERFIL E OBJETIVO -->
+        <div id="tab-profile" class="space-y-6 hidden">
+            <div class="bg-[#1C2C4B] border border-[#304568] rounded-3xl p-6 shadow-xl space-y-4">
+                <div>
+                    <h3 class="font-bold text-[#F5F8FF] text-base flex items-center space-x-2">
+                        <i class="ph-bold ph-user-circle text-[#4F80FF] text-xl"></i>
+                        <span>Seu Perfil & Objetivo</span>
+                    </h3>
+                    <p class="text-xs text-[#C3D3F2] mt-1">Preencha seus dados para calcularmos sua massa magra e a meta de proteínas ideal para seu treino.</p>
+                </div>
+
+                <form id="profileForm" onsubmit="saveProfile(event)" class="space-y-4 pt-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-[#C3D3F2] mb-1.5 uppercase tracking-wider">Nome</label>
+                        <input type="text" id="pName" required class="w-full bg-[#15233F] border border-[#304568] rounded-xl p-3 text-sm text-[#F5F8FF] focus:outline-none focus:border-[#4F80FF] transition" placeholder="Ex: Carlos Silva">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-[#C3D3F2] mb-1.5 uppercase tracking-wider">Idade (anos)</label>
+                            <input type="number" id="pAge" required min="10" max="120" class="w-full bg-[#15233F] border border-[#304568] rounded-xl p-3 text-sm text-[#F5F8FF] focus:outline-none focus:border-[#4F80FF] transition" placeholder="26">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-[#C3D3F2] mb-1.5 uppercase tracking-wider">Altura (cm)</label>
+                            <input type="number" id="pHeight" required min="100" max="250" class="w-full bg-[#15233F] border border-[#304568] rounded-xl p-3 text-sm text-[#F5F8FF] focus:outline-none focus:border-[#4F80FF] transition" placeholder="178">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-[#C3D3F2] mb-1.5 uppercase tracking-wider">Peso Total (kg)</label>
+                            <input type="number" step="0.1" id="pWeight" required min="30" max="300" class="w-full bg-[#15233F] border border-[#304568] rounded-xl p-3 text-sm text-[#F5F8FF] focus:outline-none focus:border-[#4F80FF] transition" placeholder="80.5">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-[#C3D3F2] mb-1.5 uppercase tracking-wider">% Gordura Corporal</label>
+                            <input type="number" step="0.1" id="pFat" required min="3" max="60" class="w-full bg-[#15233F] border border-[#304568] rounded-xl p-3 text-sm text-[#F5F8FF] focus:outline-none focus:border-[#4F80FF] transition" placeholder="14">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-[#C3D3F2] mb-1.5 uppercase tracking-wider">Objetivo na Academia</label>
+                        <select id="pGoal" class="w-full bg-[#15233F] border border-[#304568] rounded-xl p-3 text-sm text-[#F5F8FF] focus:outline-none focus:border-[#4F80FF] transition">
+                            <option value="hypertrophy_dry">Ganho de Massa Muscular Seco (Hipertrofia)</option>
+                            <option value="hypertrophy_surplus">Ganho de Massa com Leve Superávit (Volume)</option>
+                            <option value="recomposition">Recomposição Corporal (Massa + Perda de Gordura)</option>
+                            <option value="maintenance">Manutenção e Preservação Muscular</option>
+                        </select>
+                    </div>
+
+                    <div class="bg-[#15233F] border border-[#304568] rounded-2xl p-4 text-xs text-[#C3D3F2] space-y-1">
+                        <span class="font-bold block text-[#4F80FF] flex items-center space-x-1">
+                            <i class="ph-bold ph-info text-sm"></i>
+                            <span>Fórmula de Nutrição Esportiva</span>
+                        </span>
+                        <p>O aplicativo calcula sua Massa Magra (LBM) e aplica o fator ideal de proteína em gramas por quilo conforme diretrizes de nutrição para musculação.</p>
+                    </div>
+
+                    <button type="submit" class="w-full bg-[#4F80FF] hover:bg-[#3768E8] active:scale-[0.98] text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg shadow-[#4F80FF]/25 transition flex items-center justify-center space-x-2">
+                        <i class="ph-bold ph-floppy-disk text-lg"></i>
+                        <span>Salvar Perfil e Calcular Meta</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL DE MENSAGEM / FEEDBACK -->
+    <div id="customModal" class="fixed inset-0 z-50 bg-[#101B38]/85 backdrop-blur-sm flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
+        <div id="modalContent" class="bg-[#1C2C4B] border border-[#304568] rounded-3xl max-w-sm w-full p-6 text-center transform scale-95 transition-transform duration-300 shadow-2xl">
+            <div id="modalIconContainer" class="w-14 h-14 rounded-2xl bg-[#4F80FF]/20 text-[#4F80FF] flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i id="modalIcon" class="ph-bold ph-check"></i>
+            </div>
+            <h3 id="modalTitle" class="text-lg font-bold text-[#F5F8FF] mb-2">Sucesso!</h3>
+            <p id="modalMessage" class="text-sm text-[#C3D3F2] mb-6">Ação concluída com sucesso.</p>
+            <button onclick="closeModal()" class="w-full bg-[#4F80FF] hover:bg-[#3768E8] text-white font-bold py-3 px-6 rounded-xl transition">Entendido</button>
+        </div>
+    </div>
+
+    <!-- SCRIPT DO APLICATIVO -->
+    <script>
+        // BANCO DE DADOS DE ALIMENTOS DE ACADEMIA E CONVERSÃO
+        const FOOD_DATABASE = [
+            { keywords: ['frango', 'peito de frango', 'frango grelhado', 'frango cozido'], pPer100g: 31 },
+            { keywords: ['bife', 'carne', 'patinho', 'alcatra', 'carne vermelha', 'carne moída', 'boi', 'bife de gado magro'], pPer100g: 26 },
+            { keywords: ['ovo', 'ovos', 'ovo inteiro', 'ovos cozidos'], pPerUnit: 6, pPer100g: 13 },
+            { keywords: ['clara', 'claras', 'clara de ovo'], pPer100g: 11 },
+            { keywords: ['whey', 'whey protein', 'scoop whey', 'proteína do soro'], pPerScoop: 24, pPer100g: 80 },
+            { keywords: ['atum', 'atum em lata', 'atum ralado'], pPer100g: 25 },
+            { keywords: ['tilápia', 'peixe', 'filé de tilápia', 'salmão'], pPer100g: 20 },
+            { keywords: ['feijão', 'feijão preto', 'feijão carioca', 'feijão cozido'], pPer100g: 5 },
+            { keywords: ['arroz', 'arroz branco', 'arroz integral'], pPer100g: 2.5 },
+            { keywords: ['aveia', 'farelo de aveia', 'farinha de aveia'], pPer100g: 14 },
+            { keywords: ['leite', 'leite desnatado', 'leite integral'], pPer100g: 3.3 },
+            { keywords: ['iogurte', 'iogurte grego', 'iogurte natural'], pPer100g: 10 },
+            { keywords: ['queijo', 'queijo cottage', 'ricota', 'mussarela'], pPer100g: 18 },
+            { keywords: ['pasta de amendoim', 'amendoim'], pPer100g: 25 },
+            { keywords: ['lombo', 'suíno', 'carne de porco'], pPer100g: 27 }
+        ];
+
+        let appData = {
+            profile: null,
+            logs: {}
+        };
+
+        let historyChartInstance = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFromLocalStorage();
+            checkProfileSetup();
+            renderHome();
+            initChart();
+        });
+
+        function switchTab(tabName) {
+            document.getElementById('tab-home').classList.add('hidden');
+            document.getElementById('tab-history').classList.add('hidden');
+            document.getElementById('tab-profile').classList.add('hidden');
+
+            document.getElementById('navHomeBtn').className = "p-2.5 rounded-xl text-[#A7B4CC] transition flex items-center justify-center";
+            document.getElementById('navHistoryBtn').className = "p-2.5 rounded-xl text-[#A7B4CC] transition flex items-center justify-center";
+            document.getElementById('navProfileBtn').className = "p-2.5 rounded-xl text-[#A7B4CC] transition flex items-center justify-center";
+
+            if (tabName === 'home') {
+                document.getElementById('tab-home').classList.remove('hidden');
+                document.getElementById('navHomeBtn').className = "p-2.5 rounded-xl bg-[#263759] text-[#4F80FF] transition flex items-center justify-center";
+                renderHome();
+            } else if (tabName === 'history') {
+                document.getElementById('tab-history').classList.remove('hidden');
+                document.getElementById('navHistoryBtn').className = "p-2.5 rounded-xl bg-[#263759] text-[#4F80FF] transition flex items-center justify-center";
+                renderHistoryTab();
+            } else if (tabName === 'profile') {
+                document.getElementById('tab-profile').classList.remove('hidden');
+                document.getElementById('navProfileBtn').className = "p-2.5 rounded-xl bg-[#263759] text-[#4F80FF] transition flex items-center justify-center";
+                populateProfileForm();
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('proton_app_data', JSON.stringify(appData));
+        }
+
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem('proton_app_data');
+            if (saved) {
+                try {
+                    appData = JSON.parse(saved);
+                } catch (e) {
+                    console.error("Erro ao carregar dados", e);
+                }
+            }
+        }
+
+        function checkProfileSetup() {
+            const warningEl = document.getElementById('profileWarning');
+            if (!appData.profile) {
+                warningEl.classList.remove('hidden');
+            } else {
+                warningEl.classList.add('hidden');
+            }
+        }
+
+        function saveProfile(e) {
+            e.preventDefault();
+            const name = document.getElementById('pName').value;
+            const age = parseFloat(document.getElementById('pAge').value);
+            const height = parseFloat(document.getElementById('pHeight').value);
+            const weight = parseFloat(document.getElementById('pWeight').value);
+            const fat = parseFloat(document.getElementById('pFat').value);
+            const goal = document.getElementById('pGoal').value;
+
+            const lbm = weight * (1 - (fat / 100));
+            
+            let proteinMultiplier = 2.2;
+            if (goal === 'hypertrophy_dry') proteinMultiplier = 2.4;
+            else if (goal === 'hypertrophy_surplus') proteinMultiplier = 2.2;
+            else if (goal === 'recomposition') proteinMultiplier = 2.5;
+            else if (goal === 'maintenance') proteinMultiplier = 2.0;
+
+            let targetProtein = Math.round(lbm * proteinMultiplier);
+            const minProtein = Math.round(weight * 1.6);
+            if (targetProtein < minProtein) targetProtein = minProtein;
+
+            appData.profile = {
+                name, age, height, weight, fat, lbm: lbm.toFixed(1), goal, targetProtein
+            };
+
+            saveToLocalStorage();
+            checkProfileSetup();
+            showModal('Perfil Atualizado!', `Sua meta diária foi calculada: <b>${targetProtein}g de proteína</b> por dia.`, 'ph-shield-check');
+            switchTab('home');
+        }
+
+        function populateProfileForm() {
+            if (!appData.profile) return;
+            document.getElementById('pName').value = appData.profile.name || '';
+            document.getElementById('pAge').value = appData.profile.age || '';
+            document.getElementById('pHeight').value = appData.profile.height || '';
+            document.getElementById('pWeight').value = appData.profile.weight || '';
+            document.getElementById('pFat').value = appData.profile.fat || '';
+            document.getElementById('pGoal').value = appData.profile.goal || 'hypertrophy_dry';
+        }
+
+        function getTodayKey() {
+            const d = new Date();
+            return d.toISOString().split('T')[0];
+        }
+
+        function getGoalNameText(goalKey) {
+            switch(goalKey) {
+                case 'hypertrophy_dry': return 'Hipertrofia Seca';
+                case 'hypertrophy_surplus': return 'Volume (Superávit)';
+                case 'recomposition': return 'Recomposição Corporal';
+                case 'maintenance': return 'Manutenção';
+                default: return 'Musculação';
+            }
+        }
+
+        function renderHome() {
+            const todayKey = getTodayKey();
+            const target = appData.profile ? appData.profile.targetProtein : 160;
+            const todayLogs = appData.logs[todayKey] || [];
+
+            let totalConsumed = todayLogs.reduce((acc, item) => acc + item.protein, 0);
+
+            document.getElementById('targetSubLabel').textContent = target + 'g';
+            document.getElementById('goalBadgeText').textContent = 'Meta: ' + target + 'g';
+            document.getElementById('consumedLabel').textContent = totalConsumed + 'g';
+            document.getElementById('mealCountLabel').textContent = todayLogs.length;
+            
+            if (appData.profile) {
+                document.getElementById('goalNameShortLabel').textContent = getGoalNameText(appData.profile.goal);
+            } else {
+                document.getElementById('goalNameShortLabel').textContent = 'Configurar Perfil';
+            }
+
+            let remaining = target - totalConsumed;
+            const remainingEl = document.getElementById('remainingLabel');
+            if (remaining > 0) {
+                remainingEl.textContent = remaining + 'g';
+                document.getElementById('progressStatusText').innerHTML = `Faltam <span class="text-[#4F80FF] font-bold">${remaining}g</span> para atingir sua meta`;
+            } else {
+                remainingEl.textContent = '0g';
+                document.getElementById('progressStatusText').innerHTML = `<span class="text-[#43D9A3] font-bold">Meta diária atingida com sucesso! 🔥</span>`;
+            }
+
+            const circle = document.getElementById('progressCircle');
+            let percentage = (totalConsumed / target);
+            if (percentage > 1) percentage = 1;
+            const dashOffset = 477 - (477 * percentage);
+            circle.style.strokeDashoffset = dashOffset;
+            
+            if (totalConsumed >= target) {
+                circle.classList.remove('text-[#4F80FF]');
+                circle.classList.add('text-[#43D9A3]');
+            } else {
+                circle.classList.add('text-[#4F80FF]');
+                circle.classList.remove('text-[#43D9A3]');
+            }
+
+            const listEl = document.getElementById('todayItemsList');
+            document.getElementById('todayItemsCount').textContent = todayLogs.length + ' itens';
+
+            if (todayLogs.length === 0) {
+                listEl.innerHTML = `
+                    <div class="bg-[#192742]/50 border border-[#304568] rounded-2xl p-4 text-center text-[#819BC5] text-sm">
+                        Nenhum alimento registrado hoje ainda.
+                    </div>
+                `;
+            } else {
+                listEl.innerHTML = todayLogs.map((item, idx) => `
+                    <div class="bg-[#192742] border border-[#304568] rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                        <div class="flex items-center space-x-3 pr-2">
+                            <div class="w-10 h-10 rounded-xl bg-[#4F80FF]/15 text-[#4F80FF] flex items-center justify-center shrink-0">
+                                <i class="ph-bold ph-bowl-food text-lg"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-semibold text-[#F5F8FF] text-sm leading-snug">${escapeHtml(item.text)}</h4>
+                                <span class="text-xs text-[#819BC5]">${item.timestamp}</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <span class="font-extrabold text-[#4F80FF] text-sm whitespace-nowrap">+${item.protein}g P</span>
+                            <button onclick="removeLogItem('${todayKey}', ${item.id})" class="text-[#819BC5] hover:text-[#FF6B78] p-1.5 transition">
+                                <i class="ph-bold ph-trash text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function quickAdd(text) {
+            document.getElementById('naturalInput').value = text;
+            processFoodInput();
+        }
+
+        // Função do Botão: Calcular Proteína (sem adicionar ainda)
+        function calculateOnly() {
+            const inputEl = document.getElementById('naturalInput');
+            const text = inputEl.value.trim();
+
+            if (!text) {
+                showModal('Atenção', 'Digite o alimento no campo acima para calcular.', 'ph-warning', true);
+                return;
+            }
+
+            const proteinCalculated = parseNaturalFoodText(text);
+            const previewBox = document.getElementById('calcPreviewBox');
+            const previewVal = document.getElementById('calcPreviewValue');
+
+            previewVal.textContent = proteinCalculated + 'g';
+            previewBox.classList.remove('hidden');
+        }
+
+        // Função do Botão: Adicionar ao log diário
+        function processFoodInput() {
+            const inputEl = document.getElementById('naturalInput');
+            const text = inputEl.value.trim();
+
+            if (!text) {
+                showModal('Atenção', 'Por favor, digite o que você consumiu.', 'ph-warning', true);
+                return;
+            }
+
+            const proteinCalculated = parseNaturalFoodText(text);
+            const todayKey = getTodayKey();
+
+            if (!appData.logs[todayKey]) {
+                appData.logs[todayKey] = [];
+            }
+
+            const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            appData.logs[todayKey].push({
+                id: Date.now(),
+                text: text,
+                protein: proteinCalculated,
+                timestamp: nowTime
+            });
+
+            saveToLocalStorage();
+            inputEl.value = '';
+            document.getElementById('calcPreviewBox').classList.add('hidden');
+            renderHome();
+
+            showModal('Adicionado com Sucesso!', `Registrado <b>${proteinCalculated}g de proteína</b> para: <i>"${escapeHtml(text)}"</i>`, 'ph-check-circle');
+        }
+
+        // Motor Inteligente de Interpretação Natural de Alimentos
+        function parseNaturalFoodText(rawText) {
+            const text = rawText.toLowerCase();
+            let totalProtein = 0;
+
+            let matchedFood = null;
+            for (let food of FOOD_DATABASE) {
+                for (let kw of food.keywords) {
+                    if (text.includes(kw)) {
+                        matchedFood = food;
+                        break;
+                    }
+                }
+                if (matchedFood) break;
+            }
+
+            const digitsOnly = text.match(/(\d+)/);
+            let numericVal = digitsOnly ? parseInt(digitsOnly[1]) : 100;
+
+            if (matchedFood) {
+                if (text.includes('scoop') || text.includes('dosador')) {
+                    const scoops = numericVal > 20 ? 1 : numericVal;
+                    const pPerScoop = matchedFood.pPerScoop || 24;
+                    if (text.includes('gr') || text.includes('g')) {
+                        const exactGrams = text.match(/(\d+)\s*(?:g|gr)/);
+                        if (exactGrams) {
+                            totalProtein = Math.round((parseInt(exactGrams[1]) * matchedFood.pPer100g) / 100);
+                        } else {
+                            totalProtein = Math.round(scoops * pPerScoop);
+                        }
+                    } else {
+                        totalProtein = Math.round(scoops * pPerScoop);
+                    }
+                } else if (text.includes('ovo') || text.includes('ovos')) {
+                    const units = numericVal > 10 ? 2 : numericVal;
+                    if (text.includes('g') || text.includes('gr')) {
+                        totalProtein = Math.round((numericVal * matchedFood.pPer100g) / 100);
+                    } else {
+                        const pUnit = matchedFood.pPerUnit || 6;
+                        totalProtein = Math.round(units * pUnit);
+                    }
+                } else {
+                    let grams = 100;
+                    const gMatch = text.match(/(\d+)\s*(?:g|gr|gramas)/);
+                    if (gMatch) {
+                        grams = parseInt(gMatch[1]);
+                    } else if (numericVal > 10) {
+                        grams = numericVal;
+                    }
+                    totalProtein = Math.round((grams * matchedFood.pPer100g) / 100);
+                }
+            } else {
+                let grams = numericVal > 10 ? numericVal : 100;
+                totalProtein = Math.round((grams * 25) / 100);
+            }
+
+            return totalProtein > 0 ? totalProtein : 15;
+        }
+
+        function removeLogItem(dateKey, itemId) {
+            if (appData.logs[dateKey]) {
+                appData.logs[dateKey] = appData.logs[dateKey].filter(item => item.id !== itemId);
+                saveToLocalStorage();
+                renderHome();
+            }
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('historyChart').getContext('2d');
+            historyChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Proteína Consumida (g)',
+                            data: [],
+                            backgroundColor: '#4F80FF',
+                            borderRadius: 8,
+                        },
+                        {
+                            label: 'Meta Diária (g)',
+                            data: [],
+                            type: 'line',
+                            borderColor: '#43D9A3',
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#C3D3F2',
+                                font: { family: 'Inter', size: 11 }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#819BC5', font: { family: 'Inter', size: 10 } }
+                        },
+                        y: {
+                            grid: { color: '#304568' },
+                            ticks: { color: '#819BC5', font: { family: 'Inter', size: 10 } }
+                        }
+                    }
+                }
+            });
+            updateChartData();
+        }
+
+        function updateChartData() {
+            if (!historyChartInstance) return;
+
+            const labels = [];
+            const consumedData = [];
+            const targetData = [];
+
+            const target = appData.profile ? appData.profile.targetProtein : 160;
+
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                const dateKey = d.toISOString().split('T')[0];
+                const dayLabel = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' });
+
+                labels.push(dayLabel);
+                
+                const dayLogs = appData.logs[dateKey] || [];
+                const totalC = dayLogs.reduce((acc, item) => acc + item.protein, 0);
+                consumedData.push(totalC);
+                targetData.push(target);
+            }
+
+            historyChartInstance.data.labels = labels;
+            historyChartInstance.data.datasets[0].data = consumedData;
+            historyChartInstance.data.datasets[1].data = targetData;
+            historyChartInstance.update();
+        }
+
+        function renderHistoryTab() {
+            updateChartData();
+            
+            const historyListEl = document.getElementById('historyDaysList');
+            const dates = Object.keys(appData.logs).sort().reverse();
+
+            if (dates.length === 0) {
+                historyListEl.innerHTML = `
+                    <div class="bg-[#192742]/50 border border-[#304568] rounded-2xl p-4 text-center text-[#819BC5] text-sm">
+                        Nenhum histórico anterior encontrado.
+                    </div>
+                `;
+                return;
+            }
+
+            const target = appData.profile ? appData.profile.targetProtein : 160;
+
+            historyListEl.innerHTML = dates.map(dateKey => {
+                const logs = appData.logs[dateKey] || [];
+                const total = logs.reduce((acc, item) => acc + item.protein, 0);
+                const achieved = total >= target;
+
+                return `
+                    <div class="bg-[#192742] border border-[#304568] rounded-2xl p-4 flex items-center justify-between">
+                        <div>
+                            <span class="font-bold text-[#F5F8FF] text-sm block">${formatDateReadable(dateKey)}</span>
+                            <span class="text-xs text-[#819BC5]">${logs.length} refeições registradas</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-extrabold ${achieved ? 'text-[#43D9A3]' : 'text-[#4F80FF]'} text-base">${total}g</span>
+                            <span class="text-xs text-[#819BC5] block">Meta: ${target}g</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function formatDateReadable(dateStr) {
+            const parts = dateStr.split('-');
+            return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        }
+
+        function showModal(title, message, iconClass = 'ph-check', isWarning = false) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').innerHTML = message;
+            
+            const iconContainer = document.getElementById('modalIconContainer');
+            const iconEl = document.getElementById('modalIcon');
+            
+            iconEl.className = `ph-bold ${iconClass}`;
+            if (isWarning) {
+                iconContainer.className = "w-14 h-14 rounded-2xl bg-[#FF6B78]/20 text-[#FF6B78] flex items-center justify-center mx-auto mb-4 text-2xl";
+            } else {
+                iconContainer.className = "w-14 h-14 rounded-2xl bg-[#4F80FF]/20 text-[#4F80FF] flex items-center justify-center mx-auto mb-4 text-2xl";
+            }
+
+            const modal = document.getElementById('customModal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                document.getElementById('modalContent').classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('customModal');
+            modal.classList.add('opacity-0');
+            document.getElementById('modalContent').classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
